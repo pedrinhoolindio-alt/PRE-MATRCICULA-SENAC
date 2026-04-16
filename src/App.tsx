@@ -15,6 +15,8 @@ import {
   Cell,
   Legend
 } from 'recharts';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
 
 import LeadForm from './components/LeadForm';
 import LeadTable from './components/LeadTable';
@@ -29,33 +31,45 @@ export default function App() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('senac-leads');
-    if (saved) {
-      try {
-        setLeads(JSON.parse(saved));
-      } catch (e) {
-        console.error("Erro ao carregar leads:", e);
-      }
-    }
+    const q = query(collection(db, 'leads'), orderBy('data', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const leadsData: Lead[] = [];
+      snapshot.forEach((doc) => {
+        leadsData.push({ id: doc.id, ...doc.data() } as Lead);
+      });
+      setLeads(leadsData);
+    }, (error) => {
+      console.error("Erro ao sincronizar Firestore:", error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('senac-leads', JSON.stringify(leads));
-  }, [leads]);
-
-  const handleSaveLead = (leadData: Omit<Lead, 'id'>) => {
-    if (editingLead) {
-      const updatedLead = { ...leadData, id: editingLead.id } as Lead;
-      setLeads(prev => prev.map(l => l.id === editingLead.id ? updatedLead : l));
-      setEditingLead(null);
-    } else {
-      const newLead: Lead = {
-        ...leadData,
-        id: crypto.randomUUID(),
-      };
-      setLeads(prev => [newLead, ...prev]);
-      setCurrentLead(newLead);
-      setIsModalOpen(true);
+  const handleSaveLead = async (leadData: Omit<Lead, 'id'>) => {
+    try {
+      if (editingLead) {
+        const leadRef = doc(db, 'leads', editingLead.id);
+        await updateDoc(leadRef, {
+          ...leadData,
+          updatedAt: serverTimestamp()
+        });
+        setEditingLead(null);
+      } else {
+        const docRef = await addDoc(collection(db, 'leads'), {
+          ...leadData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        const newLead: Lead = {
+          ...leadData,
+          id: docRef.id,
+        };
+        setCurrentLead(newLead);
+        setIsModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar no Firestore:", error);
     }
   };
 
@@ -64,12 +78,24 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeleteLead = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id));
+  const handleDeleteLead = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'leads', id));
+    } catch (error) {
+      console.error("Erro ao deletar do Firestore:", error);
+    }
   };
 
-  const handleUpdateStatus = (id: string, newStatus: any) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+  const handleUpdateStatus = async (id: string, newStatus: any) => {
+    try {
+      const leadRef = doc(db, 'leads', id);
+      await updateDoc(leadRef, { 
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar status no Firestore:", error);
+    }
   };
 
   const exportToExcel = () => {

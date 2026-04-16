@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isValidLead(data) {
+      return data.nome is string && 
+             data.curso is string && 
+             data.status in ['PENDENTE', 'PAGO', 'CANCELADO'];
+    }
+
+    match /leads/{leadId} {
+      allow read: if true;
+      allow create: if isValidLead(request.resource.data);
+      allow update: if isValidLead(request.resource.data);
+      allow delete: if true; 
+    }
+  }
+}

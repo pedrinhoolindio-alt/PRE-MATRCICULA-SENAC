@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "lead": {
+      "title": "Lead",
+      "description": "Informações da pré-matrícula",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "canal": { "type": "string" },
+        "unidade": { "type": "string" },
+        "curso": { "type": "string" },
+        "codigo_turma": { "type": "string" },
+        "nome": { "type": "string" },
+        "cpf": { "type": "string" },
+        "nascimento": { "type": "string", "format": "date" },
+        "mail": { "type": "string", "format": "email" },
+        "telefone": { "type": "string" },
+        "cep": { "type": "string" },
+        "logradouro": { "type": "string" },
+        "numero": { "type": "string" },
+        "complemento": { "type": "string" },
+        "isAlunoResp": { "type": "boolean" },
+        "resp_nome": { "type": "string" },
+        "resp_cpf": { "type": "string" },
+        "pagamento": { "type": "string" },
+        "valor": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDENTE", "PAGO", "CANCELADO"] },
+        "atendente": { "type": "string" },
+        "obs": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["data", "nome", "curso"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "lead",
+      "description": "Coleção de pré-matrículas"
+    }
+  }
+}
