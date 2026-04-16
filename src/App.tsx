@@ -49,10 +49,13 @@ export default function App() {
     try {
       if (editingLead) {
         const leadRef = doc(db, 'leads', editingLead.id);
+        const updatedLead = { ...leadData, id: editingLead.id } as Lead;
         await updateDoc(leadRef, {
           ...leadData,
           updatedAt: serverTimestamp()
         });
+        setCurrentLead(updatedLead);
+        setIsModalOpen(true);
         setEditingLead(null);
       } else {
         const docRef = await addDoc(collection(db, 'leads'), {
@@ -332,6 +335,10 @@ export default function App() {
                   onStatusChange={handleUpdateStatus} 
                   onEdit={handleEditLead}
                   onDelete={handleDeleteLead}
+                  onViewEmail={(lead) => {
+                    setCurrentLead(lead);
+                    setIsModalOpen(true);
+                  }}
                 />
               </section>
             </div>

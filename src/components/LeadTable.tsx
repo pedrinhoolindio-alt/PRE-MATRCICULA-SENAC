@@ -1,5 +1,5 @@
 import { Lead, Status } from '../types';
-import { Search, ChevronDown, Edit2, Trash2, Filter } from 'lucide-react';
+import { Search, ChevronDown, Edit2, Trash2, Filter, Mail } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
 interface LeadTableProps {
@@ -7,9 +7,10 @@ interface LeadTableProps {
   onStatusChange: (id: string, newStatus: Status) => void;
   onEdit?: (lead: Lead) => void;
   onDelete?: (id: string) => void;
+  onViewEmail?: (lead: Lead) => void;
 }
 
-export default function LeadTable({ leads, onStatusChange, onEdit, onDelete }: LeadTableProps) {
+export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onViewEmail }: LeadTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status | 'TODOS'>('TODOS');
   const [atendenteFilter, setAtendenteFilter] = useState<string>('TODOS');
@@ -150,6 +151,13 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete }: L
                     ) : (
                       <>
                         <button 
+                          onClick={() => onViewEmail?.(lead)}
+                          className="p-2 text-slate-400 hover:text-senac-orange hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-border-main"
+                          title="Gerar E-mail"
+                        >
+                          <Mail size={14} />
+                        </button>
+                        <button 
                           onClick={() => onEdit?.(lead)}
                           className="p-2 text-slate-400 hover:text-senac-blue hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-border-main"
                           title="Editar Registro"
@@ -224,6 +232,9 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete }: L
                   </div>
                 ) : (
                   <>
+                    <button onClick={() => onViewEmail?.(lead)} className="p-2.5 bg-white border border-border-main rounded-lg text-senac-orange">
+                      <Mail size={16} />
+                    </button>
                     <button onClick={() => onEdit?.(lead)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
                       <Edit2 size={16} />
                     </button>
