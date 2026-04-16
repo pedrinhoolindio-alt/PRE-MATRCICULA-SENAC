@@ -8,9 +8,10 @@ interface LeadTableProps {
   onEdit?: (lead: Lead) => void;
   onDelete?: (id: string) => void;
   onViewEmail?: (lead: Lead) => void;
+  isAdmin?: boolean;
 }
 
-export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onViewEmail }: LeadTableProps) {
+export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onViewEmail, isAdmin }: LeadTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status | 'TODOS'>('TODOS');
   const [atendenteFilter, setAtendenteFilter] = useState<string>('TODOS');
@@ -164,13 +165,15 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onV
                         >
                           <Edit2 size={14} />
                         </button>
-                        <button 
-                          onClick={() => setDeletingId(lead.id)}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-border-main"
-                          title="Excluir Registro"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {isAdmin && (
+                          <button 
+                            onClick={() => setDeletingId(lead.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-border-main"
+                            title="Excluir Registro"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -238,9 +241,11 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onV
                     <button onClick={() => onEdit?.(lead)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => setDeletingId(lead.id)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
-                      <Trash2 size={16} />
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => setDeletingId(lead.id)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>

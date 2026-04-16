@@ -1,6 +1,7 @@
 export type Canal = 'INSTAGRAM' | 'SITE' | 'BALCÃO' | 'PANFLETO' | 'JORNAL' | 'CALLCENTER' | 'WHATSAPP';
 export type Pagamento = 'BOLETO' | 'CARTÃO CRÉDITO' | 'PIX';
 export type Status = 'PENDENTE' | 'PAGO' | 'CANCELADO';
+export type Role = 'ADMIN' | 'ATENDENTE';
 
 export interface Lead {
   id: string;

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Download, LayoutDashboard, Database, TrendingUp, Settings, FileSpreadsheet, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useMemo, FormEvent } from 'react';
+import { Download, LayoutDashboard, Database, TrendingUp, Settings, FileSpreadsheet, PieChart as PieChartIcon, BarChart3, LogOut, Loader2, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { 
@@ -15,22 +15,87 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { db, auth } from './firebase';
 
 import LeadForm from './components/LeadForm';
 import LeadTable from './components/LeadTable';
 import EmailModal from './components/EmailModal';
-import { Lead } from './types';
+import { Lead, Role } from './types';
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<Role>('ATENDENTE');
+  const [authLoading, setAuthLoading] = useState(true);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [currentLead, setCurrentLead] = useState<Lead | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [activeTab, setActiveTab] = useState('Pré-Matrículas'); 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
+  // Login Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  // Auth Observer
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      try {
+        if (currentUser) {
+          // Determine if we need to show loading while syncing roles
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          let syncRole: Role = 'ATENDENTE';
+          
+          try {
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              syncRole = userDoc.data().role as Role;
+            } else {
+              // Create user profile if not exists
+              const defaultRole: Role = currentUser.email === 'pedrinhoolindio@gmail.com' ? 'ADMIN' : 'ATENDENTE';
+              syncRole = defaultRole;
+              
+              const fallbackName = currentUser.email?.split('@')[0] || 'Usuário';
+              const finalName = currentUser.displayName || (fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1));
+
+              await setDoc(userDocRef, {
+                name: finalName,
+                email: currentUser.email,
+                role: defaultRole,
+                createdAt: serverTimestamp()
+              });
+            }
+          } catch (fireError) {
+            console.error("Firestore sync error during auth:", fireError);
+            // Fallback for role if Firestore fails but Auth succeeded
+            if (currentUser.email === 'pedrinhoolindio@gmail.com') syncRole = 'ADMIN';
+          }
+          
+          setRole(syncRole);
+          if (syncRole === 'ADMIN') setActiveTab('Dashboard');
+          else setActiveTab('Pré-Matrículas');
+        }
+        setUser(currentUser);
+      } catch (authErr) {
+        console.error("Auth state change processing error:", authErr);
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Leads Sync (Only if authenticated)
+  useEffect(() => {
+    if (!user) {
+      setLeads([]);
+      return;
+    }
+
     const q = query(collection(db, 'leads'), orderBy('data', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const leadsData: Lead[] = [];
@@ -43,7 +108,43 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
+
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleAuth = async (e: FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsAuthenticating(true);
+    try {
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error: any) {
+      console.error("Auth Error:", error);
+      const errorCode = error.code;
+      
+      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        setAuthError('E-mail ou senha incorretos. Verifique suas credenciais.');
+      } else if (errorCode === 'auth/email-already-in-use') {
+        setAuthError('Este e-mail já está em uso. Tente fazer login.');
+      } else if (errorCode === 'auth/weak-password') {
+        setAuthError('A senha é muito fraca. Use pelo menos 6 caracteres.');
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        setAuthError('O login por e-mail e senha não está ativado no Firebase Console.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setAuthError('Muitas tentativas. Tente novamente mais tarde.');
+      } else {
+        setAuthError(`Erro: ${error.message || 'Ocorreu um erro ao acessar o sistema.'}`);
+      }
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
 
   const handleSaveLead = async (leadData: Omit<Lead, 'id'>) => {
     try {
@@ -170,11 +271,128 @@ export default function App() {
   const COLORS = ['#004587', '#FF9A00', '#EF4444', '#64748B'];
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard },
+    ...(role === 'ADMIN' ? [{ label: 'Dashboard', icon: LayoutDashboard }] : []),
     { label: 'Pré-Matrículas', icon: Database },
     { label: 'Planilhas Exportadas', icon: FileSpreadsheet },
     { label: 'Configurações', icon: Settings },
   ];
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-bg-main">
+        <Loader2 className="animate-spin text-senac-blue mb-4" size={48} />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Iniciando Senac Sales...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-bg-main p-4 overflow-y-auto">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white border border-border-main p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-senac-blue/5 max-w-md w-full"
+        >
+          <div className="flex flex-col items-center mb-10">
+            <div className="flex items-center gap-2 font-extrabold text-3xl tracking-tighter mb-2">
+              <span className="text-senac-blue">SENAC</span>
+              <em className="not-italic text-senac-orange">SALES</em>
+            </div>
+            <div className="h-1 w-12 bg-senac-orange rounded-full"></div>
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-800 mb-2 text-center">
+            {isSignUp ? 'Criar Nova Conta' : 'Acesso ao Sistema'}
+          </h2>
+          <p className="text-sm text-slate-500 mb-8 leading-relaxed text-center">
+            {isSignUp 
+              ? 'Cadastre-se para começar a gerenciar leads.' 
+              : 'Entre com suas credenciais para continuar.'}
+          </p>
+
+          {email.trim().toLowerCase() === 'pedrinhoolindio@gmail.com' && !isSignUp && (
+            <div className="mb-6 p-4 bg-senac-blue/5 border border-senac-blue/10 rounded-2xl">
+              <div className="flex items-center gap-2 text-senac-blue mb-1">
+                <ShieldCheck size={14} className="animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Acesso Master Detectado</span>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-tight">
+                Se você já criou sua senha na aba "Cadastrar-se", entre agora. Caso contrário, alterne para o cadastro primeiro.
+              </p>
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">E-mail Corporativo</label>
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-semibold outline-none focus:border-senac-blue focus:ring-4 focus:ring-senac-blue/5 transition-all"
+                placeholder="exemplo@gmail.com"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Senha de Acesso</label>
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-semibold outline-none focus:border-senac-blue focus:ring-4 focus:ring-senac-blue/5 transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {authError && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 p-3 rounded-xl text-center uppercase tracking-wide"
+              >
+                {authError}
+              </motion.div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={isAuthenticating}
+              className="w-full bg-senac-blue hover:bg-senac-blue/90 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-senac-blue/20 mt-6 disabled:opacity-50 disabled:cursor-wait"
+            >
+              {isAuthenticating ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  <span className="text-sm uppercase tracking-wider">Acessando...</span>
+                </>
+              ) : (
+                <span className="text-sm uppercase tracking-wider">{isSignUp ? 'Cadastrar Atendente' : 'Entrar no Portal'}</span>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <button 
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-[10px] font-bold text-slate-400 hover:text-senac-blue uppercase tracking-widest transition-colors underline underline-offset-4"
+            >
+              {isSignUp ? 'Já possui conta? Fazer Login' : 'Não tem conta? Cadastrar-se'}
+            </button>
+          </div>
+          
+          <div className="mt-12 flex items-center justify-center gap-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+            <span>Seguro</span>
+            <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+            <span>Cloud Sync</span>
+            <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+            <span>AES-256</span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg-main font-sans">
@@ -184,8 +402,27 @@ export default function App() {
           <span className="text-senac-blue">SENAC</span>
           <em className="not-italic text-senac-orange">SALES</em>
         </div>
-        <div className="flex gap-4 md:gap-10 items-center">
-            <div className="hidden sm:block text-[10px] md:text-xs text-slate-500 font-medium whitespace-nowrap">Operador: <strong className="text-slate-800">Sales Intelligence</strong></div>
+        
+        <div className="flex gap-4 md:gap-8 items-center">
+            <div className="hidden sm:flex items-center gap-3 border-r border-slate-100 pr-8 mr-2">
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-slate-800 uppercase leading-none mb-1">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    {role === 'ADMIN' ? <ShieldCheck size={10} className="text-emerald-500" /> : <UserIcon size={10} className="text-slate-400" />}
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{role}</span>
+                  </div>
+                </div>
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-slate-200" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200">
+                    <UserIcon size={14} />
+                  </div>
+                )}
+            </div>
+
             <button 
               onClick={exportToExcel}
               disabled={leads.length === 0}
@@ -193,7 +430,14 @@ export default function App() {
             >
               <Download size={14} />
               <span className="hidden xs:inline">Exportar Base</span>
-              <span className="xs:hidden">Exportar</span>
+            </button>
+
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="Sair do sistema"
+            >
+              <LogOut size={18} />
             </button>
         </div>
       </header>
@@ -339,6 +583,7 @@ export default function App() {
                     setCurrentLead(lead);
                     setIsModalOpen(true);
                   }}
+                  isAdmin={role === 'ADMIN'}
                 />
               </section>
             </div>

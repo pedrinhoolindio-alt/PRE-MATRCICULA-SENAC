@@ -2,17 +2,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Auth Helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Role Helper - Default Admin is the user email from context
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "pedrinhoolindio@gmail.com" ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN"
+      );
+    }
+
     function isValidLead(data) {
       return data.nome is string && 
              data.curso is string && 
              data.status in ['PENDENTE', 'PAGO', 'CANCELADO'];
     }
 
+    // Leads collection
     match /leads/{leadId} {
-      allow read: if true;
-      allow create: if isValidLead(request.resource.data);
-      allow update: if isValidLead(request.resource.data);
-      allow delete: if true; 
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLead(request.resource.data);
+      allow update: if isAuthenticated() && isValidLead(request.resource.data);
+      allow delete: if isAdmin(); 
+    }
+
+    // Users collection for storing roles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

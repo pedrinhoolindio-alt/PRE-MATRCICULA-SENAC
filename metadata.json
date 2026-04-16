@@ -1,6 +1,6 @@
 {
-  "name": "Senac Sales CRM",
-  "description": "Sistema de gestão de pré-matrículas para o Senac com exportação para Excel e gerador de e-mail padronizado.",
+  "name": "Senac Sales CRM | Inteligência em Pré-Matrículas",
+  "description": "Plataforma avançada de CRM para o Senac. Gestão em tempo real de pré-matrículas, relatórios automáticos, dashboards de conversão e automação de atendimento por e-mail.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
