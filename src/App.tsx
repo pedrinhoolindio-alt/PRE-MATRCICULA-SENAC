@@ -288,36 +288,42 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-bg-main p-4 overflow-y-auto">
+      <div 
+        className="h-screen w-full flex items-center justify-center p-4 overflow-y-auto bg-cover bg-center bg-no-repeat relative"
+        style={{ backgroundImage: 'url("https://github.com/pedrinhoolindio-alt/imagem/blob/main/Gemini_Generated_Image_1tcdh91tcdh91tcd.png?raw=true")' }}
+      >
+        {/* Overlay para facilitar a leitura */}
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"></div>
+        
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white border border-border-main p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-senac-blue/5 max-w-md w-full"
+          className="bg-transparent backdrop-blur-md border border-white/30 p-8 md:p-12 rounded-[2rem] shadow-2xl relative z-10 max-w-md w-full"
         >
           <div className="flex flex-col items-center mb-10">
             <div className="flex items-center gap-2 font-extrabold text-3xl tracking-tighter mb-2">
-              <span className="text-senac-blue">SENAC</span>
+              <span className="text-white">SENAC</span>
               <em className="not-italic text-senac-orange">SALES</em>
             </div>
             <div className="h-1 w-12 bg-senac-orange rounded-full"></div>
           </div>
           
-          <h2 className="text-xl font-bold text-slate-800 mb-2 text-center">
+          <h2 className="text-xl font-bold text-white mb-2 text-center">
             {isSignUp ? 'Criar Nova Conta' : 'Acesso ao Sistema'}
           </h2>
-          <p className="text-sm text-slate-500 mb-8 leading-relaxed text-center">
+          <p className="text-sm text-slate-200 mb-8 leading-relaxed text-center font-medium">
             {isSignUp 
               ? 'Cadastre-se para começar a gerenciar leads.' 
               : 'Entre com suas credenciais para continuar.'}
           </p>
 
           {email.trim().toLowerCase() === 'pedrinhoolindio@gmail.com' && !isSignUp && (
-            <div className="mb-6 p-4 bg-senac-blue/5 border border-senac-blue/10 rounded-2xl">
-              <div className="flex items-center gap-2 text-senac-blue mb-1">
+            <div className="mb-6 p-4 bg-white/10 border border-white/20 rounded-2xl backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-white mb-1">
                 <ShieldCheck size={14} className="animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-wider">Acesso Master Detectado</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-senac-orange">Acesso Master Detectado</span>
               </div>
-              <p className="text-[10px] text-slate-500 leading-tight">
+              <p className="text-[10px] text-slate-200 leading-tight font-medium">
                 Se você já criou sua senha na aba "Cadastrar-se", entre agora. Caso contrário, alterne para o cadastro primeiro.
               </p>
             </div>
@@ -325,24 +331,24 @@ export default function App() {
 
           <form onSubmit={handleAuth} className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">E-mail Corporativo</label>
+              <label className="block text-[10px] font-black text-white/70 uppercase tracking-widest mb-1.5 ml-1">E-mail Corporativo</label>
               <input 
                 type="email" 
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-semibold outline-none focus:border-senac-blue focus:ring-4 focus:ring-senac-blue/5 transition-all"
+                className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:bg-white/10 focus:border-white/50 focus:ring-4 focus:ring-white/10 transition-all placeholder:text-slate-400 text-white"
                 placeholder="exemplo@gmail.com"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Senha de Acesso</label>
+              <label className="block text-[10px] font-black text-white/70 uppercase tracking-widest mb-1.5 ml-1">Senha de Acesso</label>
               <input 
                 type="password" 
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-semibold outline-none focus:border-senac-blue focus:ring-4 focus:ring-senac-blue/5 transition-all"
+                className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:bg-white/10 focus:border-white/50 focus:ring-4 focus:ring-white/10 transition-all placeholder:text-slate-400 text-white"
                 placeholder="••••••••"
               />
             </div>
@@ -376,17 +382,17 @@ export default function App() {
           <div className="mt-8 text-center">
             <button 
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-[10px] font-bold text-slate-400 hover:text-senac-blue uppercase tracking-widest transition-colors underline underline-offset-4"
+              className="text-[10px] font-black text-slate-200 hover:text-white uppercase tracking-widest transition-colors underline underline-offset-4"
             >
               {isSignUp ? 'Já possui conta? Fazer Login' : 'Não tem conta? Cadastrar-se'}
             </button>
           </div>
           
-          <div className="mt-12 flex items-center justify-center gap-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+          <div className="mt-12 flex items-center justify-center gap-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">
             <span>Seguro</span>
-            <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+            <div className="w-1 h-1 rounded-full bg-slate-500"></div>
             <span>Cloud Sync</span>
-            <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+            <div className="w-1 h-1 rounded-full bg-slate-500"></div>
             <span>AES-256</span>
           </div>
         </motion.div>
