@@ -83,7 +83,7 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete }: L
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b-0">
@@ -171,6 +171,71 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete }: L
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* MOBILE CARD VIEW */}
+      <div className="md:hidden space-y-4">
+        {filteredLeads.map((lead) => (
+          <div key={lead.id} className="bg-slate-50 border border-border-main rounded-xl p-4 space-y-4">
+            <div className="flex justify-between items-start border-b border-border-main pb-3">
+              <div>
+                <div className="text-[12px] font-extrabold text-slate-800 uppercase tracking-tight">{lead.nome}</div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{lead.cpf}</div>
+              </div>
+              <div className="text-[10px] font-bold text-slate-400">{lead.data}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Curso</div>
+                <div className="text-[11px] font-bold text-senac-blue uppercase leading-tight">{lead.curso}</div>
+                <div className="text-[9px] font-bold text-slate-500 mt-1 uppercase">T: {lead.codigo_turma}</div>
+              </div>
+              <div>
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Atendimento</div>
+                <div className="text-[11px] font-bold text-slate-700 uppercase leading-tight">{lead.atendente || 'N/I'}</div>
+                <div className="text-[9px] font-bold text-slate-500 mt-1 uppercase">R$ {lead.valor} • {lead.pagamento}</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="relative inline-block">
+                <select 
+                  value={lead.status}
+                  onChange={(e) => onStatusChange(lead.id, e.target.value as Status)}
+                  className={`appearance-none pl-3 pr-8 py-2 rounded text-[10px] font-extrabold uppercase tracking-wide cursor-pointer transition-all outline-none border border-transparent
+                    ${lead.status === 'PAGO' ? 'bg-emerald-100 text-emerald-700' : 
+                      lead.status === 'CANCELADO' ? 'bg-red-100 text-red-700' : 
+                      'bg-amber-100 text-amber-700'}
+                  `}
+                >
+                  <option value="PENDENTE">Pendente</option>
+                  <option value="PAGO">Pago</option>
+                  <option value="CANCELADO">Cancelado</option>
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+              </div>
+
+              <div className="flex gap-2">
+                {deletingId === lead.id ? (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleDelete(lead.id)} className="bg-red-600 text-white text-[9px] font-black px-3 py-2 rounded uppercase">VAI EXCLUIR</button>
+                    <button onClick={() => setDeletingId(null)} className="bg-slate-200 text-slate-600 text-[9px] font-black px-3 py-2 rounded uppercase">NÃO</button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => onEdit?.(lead)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
+                      <Edit2 size={16} />
+                    </button>
+                    <button onClick={() => setDeletingId(lead.id)} className="p-2.5 bg-white border border-border-main rounded-lg text-slate-400">
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
       {filteredLeads.length === 0 && (
         <div className="py-12 text-center">

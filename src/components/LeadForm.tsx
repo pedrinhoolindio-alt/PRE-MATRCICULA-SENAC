@@ -91,11 +91,11 @@ export default function LeadForm({ onSubmit, initialData, onCancel }: LeadFormPr
   const sectionLine = "h-px bg-border-main flex-1";
 
   return (
-    <form onSubmit={handleSubmit} className={`bg-white border rounded-2xl p-8 shadow-sm transition-all ${initialData ? 'border-senac-orange ring-4 ring-senac-orange/5' : 'border-border-main'}`}>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <form onSubmit={handleSubmit} className={`bg-white border rounded-2xl p-4 md:p-8 shadow-sm transition-all ${initialData ? 'border-senac-orange ring-4 ring-senac-orange/5' : 'border-border-main'}`}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         
         {/* LADO ESQUERDO */}
-        <div className="space-y-10">
+        <div className="space-y-8 md:space-y-10">
           {/* DADOS DO CURSO */}
           <section>
             <h3 className={sectionHeader}>
@@ -121,12 +121,12 @@ export default function LeadForm({ onSubmit, initialData, onCancel }: LeadFormPr
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div className="col-span-1">
                 <label className={labelClass}>Unidade</label>
                 <input type="text" name="unidade" placeholder="EX: CENTRO" value={formData.unidade} onChange={handleChange} className={inputClass} />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 lg:col-span-2">
                 <label className={labelClass}>Nome do Curso</label>
                 <input type="text" name="curso" placeholder="EX: TÉC. EM ENFERMAGEM" value={formData.curso} onChange={handleChange} className={inputClass} required />
               </div>
@@ -157,7 +157,7 @@ export default function LeadForm({ onSubmit, initialData, onCancel }: LeadFormPr
         </div>
 
         {/* LADO DIREITO */}
-        <div className="space-y-10">
+        <div className="space-y-8 md:space-y-10">
           {/* CONTATO E ENDEREÇO */}
           <section>
             <h3 className={sectionHeader}>
@@ -196,7 +196,7 @@ export default function LeadForm({ onSubmit, initialData, onCancel }: LeadFormPr
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="field">
                 <label className={labelClass}>Forma de Pagamento</label>
                 <select name="pagamento" value={formData.pagamento} onChange={handleChange} className={inputClass}>

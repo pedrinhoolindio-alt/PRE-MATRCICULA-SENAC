@@ -70,10 +70,10 @@ EQUIPE DE VENDAS SALES SENAC
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           className="bg-white border border-border-main w-full max-w-2xl rounded-3xl overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)]"
         >
-          <div className="flex justify-between items-center p-8 border-b border-border-main bg-slate-50/50">
+          <div className="flex justify-between items-center p-6 md:p-8 border-b border-border-main bg-slate-50/50">
             <div>
-              <h2 className="text-xl font-bold text-slate-800 tracking-tight uppercase">Conteúdo Gerado</h2>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">E-mail padronizado para envio</p>
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 tracking-tight uppercase">Conteúdo Gerado</h2>
+              <p className="text-slate-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mt-1">E-mail padronizado para envio</p>
             </div>
             <button 
               onClick={onClose}
@@ -83,12 +83,12 @@ EQUIPE DE VENDAS SALES SENAC
             </button>
           </div>
           
-          <div className="p-8">
-            <div className={`bg-slate-50 border border-border-main rounded-xl p-6 text-slate-600 font-mono text-xs leading-relaxed max-h-[360px] overflow-y-auto whitespace-pre-wrap transition-all ${copied ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+          <div className="p-6 md:p-8 overflow-y-auto max-h-[80vh] md:max-h-none">
+            <div className={`bg-slate-50 border border-border-main rounded-xl p-4 md:p-6 text-slate-600 font-mono text-[10px] md:text-xs leading-relaxed max-h-[280px] md:max-h-[360px] overflow-y-auto whitespace-pre-wrap transition-all ${copied ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
               {emailText}
             </div>
             
-            <div className="mt-8">
+            <div className="mt-6 md:mt-8">
               <button 
                 onClick={handleCopy}
                 className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-tight text-sm
