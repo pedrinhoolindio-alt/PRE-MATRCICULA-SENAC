@@ -147,12 +147,23 @@ export default function App() {
   const handleLogout = () => signOut(auth);
 
   const handleSaveLead = async (leadData: Omit<Lead, 'id'>) => {
+    // Normalizar todos os campos para caixa alta antes de salvar (exceto e-mail e datas)
+    const normalizedData = { ...leadData };
+    (Object.keys(normalizedData) as Array<keyof typeof normalizedData>).forEach(key => {
+      if (typeof normalizedData[key] === 'string' && 
+          key !== 'mail' && 
+          key !== 'data' && 
+          key !== 'nascimento') {
+        (normalizedData as any)[key] = (normalizedData[key] as string).toUpperCase();
+      }
+    });
+
     try {
       if (editingLead) {
         const leadRef = doc(db, 'leads', editingLead.id);
-        const updatedLead = { ...leadData, id: editingLead.id } as Lead;
+        const updatedLead = { ...normalizedData, id: editingLead.id } as Lead;
         await updateDoc(leadRef, {
-          ...leadData,
+          ...normalizedData,
           updatedAt: serverTimestamp()
         });
         setCurrentLead(updatedLead);
@@ -160,13 +171,13 @@ export default function App() {
         setEditingLead(null);
       } else {
         const docRef = await addDoc(collection(db, 'leads'), {
-          ...leadData,
+          ...normalizedData,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
         
         const newLead: Lead = {
-          ...leadData,
+          ...normalizedData,
           id: docRef.id,
         };
         setCurrentLead(newLead);
@@ -256,7 +267,8 @@ export default function App() {
 
     // 2. Registros por Unidade (Top 5)
     const unitCounts = leads.reduce((acc: any, lead) => {
-      acc[lead.unidade] = (acc[lead.unidade] || 0) + 1;
+      const unit = (lead.unidade || 'N/A').toUpperCase().trim();
+      acc[unit] = (acc[unit] || 0) + 1;
       return acc;
     }, {});
 

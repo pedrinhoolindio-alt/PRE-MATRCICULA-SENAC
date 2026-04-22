@@ -51,11 +51,14 @@ export default function LeadForm({ onSubmit, initialData, onCancel }: LeadFormPr
 
     if (type === 'checkbox') {
       newValue = (e.target as HTMLInputElement).checked;
+    } else if (typeof value === 'string' && name !== 'mail' && name !== 'data' && name !== 'nascimento' && type !== 'date') {
+      // Converte para caixa alta exceto email e campos de data
+      newValue = value.toUpperCase();
     }
 
-    if (name === 'cpf' || name === 'resp_cpf') newValue = maskCPF(value);
-    if (name === 'telefone') newValue = maskTel(value);
-    if (name === 'cep') newValue = maskCEP(value);
+    if (name === 'cpf' || name === 'resp_cpf') newValue = maskCPF(newValue);
+    if (name === 'telefone') newValue = maskTel(newValue);
+    if (name === 'cep') newValue = maskCEP(newValue);
 
     setFormData(prev => ({ ...prev, [name]: newValue }));
   };

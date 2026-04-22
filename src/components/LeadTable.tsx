@@ -18,7 +18,7 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onV
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const attendants = useMemo(() => {
-    const list = Array.from(new Set(leads.map(l => l.atendente).filter(Boolean)));
+    const list = Array.from(new Set(leads.map(l => (l.atendente || 'N/A').toUpperCase().trim()).filter(Boolean)));
     return list.sort();
   }, [leads]);
 
@@ -29,7 +29,7 @@ export default function LeadTable({ leads, onStatusChange, onEdit, onDelete, onV
       l.cpf.includes(searchTerm);
     
     const matchesStatus = statusFilter === 'TODOS' || l.status === statusFilter;
-    const matchesAtendente = atendenteFilter === 'TODOS' || l.atendente === atendenteFilter;
+    const matchesAtendente = atendenteFilter === 'TODOS' || (l.atendente || 'N/A').toUpperCase().trim() === atendenteFilter;
 
     return matchesSearch && matchesStatus && matchesAtendente;
   });
