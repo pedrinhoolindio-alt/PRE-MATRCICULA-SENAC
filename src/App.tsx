@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, FormEvent } from 'react';
-import { Download, LayoutDashboard, Database, TrendingUp, Settings, FileSpreadsheet, PieChart as PieChartIcon, BarChart3, LogOut, Loader2, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Download, LayoutDashboard, Database, TrendingUp, Settings, FileSpreadsheet, PieChart as PieChartIcon, BarChart3, LogOut, Loader2, ShieldCheck, User as UserIcon, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { 
@@ -15,7 +15,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { db, auth } from './firebase';
 
@@ -23,6 +23,43 @@ import LeadForm from './components/LeadForm';
 import LeadTable from './components/LeadTable';
 import EmailModal from './components/EmailModal';
 import { Lead, Role } from './types';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -75,7 +112,7 @@ export default function App() {
           }
           
           setRole(syncRole);
-          if (syncRole === 'ADMIN') setActiveTab('Dashboard');
+          if (syncRole === 'ADMIN') setActiveTab('Painel Geral');
           else setActiveTab('Pré-Matrículas');
         }
         setUser(currentUser);
@@ -100,11 +137,13 @@ export default function App() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const leadsData: Lead[] = [];
       snapshot.forEach((doc) => {
-        leadsData.push({ id: doc.id, ...doc.data() } as Lead);
+        const data = doc.data();
+        // Ensure the Firestore document ID is what we use, even if data has an 'id' field
+        leadsData.push({ ...data, id: doc.id } as Lead);
       });
       setLeads(leadsData);
     }, (error) => {
-      console.error("Erro ao sincronizar Firestore:", error);
+      handleFirestoreError(error, OperationType.GET, 'leads');
     });
 
     return () => unsubscribe();
@@ -149,12 +188,18 @@ export default function App() {
   const handleSaveLead = async (leadData: Omit<Lead, 'id'>) => {
     // Normalizar todos os campos para caixa alta antes de salvar (exceto e-mail e datas)
     const normalizedData = { ...leadData };
+    
+    // Remover o campo 'id' se ele existir no objeto de dados para não salvar como campo no doc
+    if ('id' in normalizedData) {
+      delete (normalizedData as any).id;
+    }
+
     (Object.keys(normalizedData) as Array<keyof typeof normalizedData>).forEach(key => {
-      if (typeof normalizedData[key] === 'string' && 
+      if (typeof (normalizedData as any)[key] === 'string' && 
           key !== 'mail' && 
           key !== 'data' && 
           key !== 'nascimento') {
-        (normalizedData as any)[key] = (normalizedData[key] as string).toUpperCase();
+        (normalizedData as any)[key] = ((normalizedData as any)[key] as string).toUpperCase();
       }
     });
 
@@ -165,7 +210,7 @@ export default function App() {
         await updateDoc(leadRef, {
           ...normalizedData,
           updatedAt: serverTimestamp()
-        });
+        }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `leads/${editingLead.id}`));
         setCurrentLead(updatedLead);
         setIsModalOpen(true);
         setEditingLead(null);
@@ -174,6 +219,9 @@ export default function App() {
           ...normalizedData,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
+        }).catch(err => {
+          handleFirestoreError(err, OperationType.CREATE, 'leads');
+          throw err;
         });
         
         const newLead: Lead = {
@@ -197,19 +245,26 @@ export default function App() {
     try {
       await deleteDoc(doc(db, 'leads', id));
     } catch (error) {
-      console.error("Erro ao deletar do Firestore:", error);
+      handleFirestoreError(error, OperationType.DELETE, `leads/${id}`);
     }
   };
 
   const handleUpdateStatus = async (id: string, newStatus: any) => {
+    if (!id) {
+      console.error("ID do lead não fornecido para atualização de status");
+      return;
+    }
+
     try {
+      const normalizedStatus = String(newStatus).toUpperCase().trim();
       const leadRef = doc(db, 'leads', id);
+      
       await updateDoc(leadRef, { 
-        status: newStatus,
+        status: normalizedStatus,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error("Erro ao atualizar status no Firestore:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `leads/${id}`);
     }
   };
 
@@ -265,25 +320,63 @@ export default function App() {
       value: statusCounts[key]
     }));
 
-    // 2. Registros por Unidade (Top 5)
+    // 2. Ranking de Vendedores (Top 10)
+    const sellerCounts = leads.reduce((acc: any, lead) => {
+      const seller = (lead.atendente || 'NÃO INFORMADO').toUpperCase().trim();
+      acc[seller] = (acc[seller] || 0) + 1;
+      return acc;
+    }, {});
+
+    const sellerRankingData = Object.keys(sellerCounts)
+      .map(key => ({ name: key, total: sellerCounts[key] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // 3. Conversão por Vendedor (Matrículas Pagas)
+    const sellerConversionCounts = leads.reduce((acc: any, lead) => {
+      if (lead.status === 'PAGO') {
+        const seller = (lead.atendente || 'NÃO INFORMADO').toUpperCase().trim();
+        acc[seller] = (acc[seller] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    const sellerConversionData = Object.keys(sellerConversionCounts)
+      .map(key => ({ name: key, total: sellerConversionCounts[key] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // 4. Ranking de Cursos (Top 5)
+    const courseCounts = leads.reduce((acc: any, lead) => {
+      const course = (lead.curso || 'NÃO INFORMADO').toUpperCase().trim();
+      acc[course] = (acc[course] || 0) + 1;
+      return acc;
+    }, {});
+
+    const courseRankingData = Object.keys(courseCounts)
+      .map(key => ({ name: key, total: courseCounts[key] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    // 5. Registros por Unidade (Top 5)
     const unitCounts = leads.reduce((acc: any, lead) => {
-      const unit = (lead.unidade || 'N/A').toUpperCase().trim();
+      const unit = (lead.unidade || 'NÃO INFORMADO').toUpperCase().trim();
       acc[unit] = (acc[unit] || 0) + 1;
       return acc;
     }, {});
 
     const barData = Object.keys(unitCounts)
-      .map(key => ({ name: key || 'N/A', total: unitCounts[key] }))
+      .map(key => ({ name: key || 'NÃO INFORMADO', total: unitCounts[key] }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    return { pieData, barData };
+    return { pieData, barData, sellerRankingData, sellerConversionData, courseRankingData };
   }, [leads]);
 
   const COLORS = ['#004587', '#FF9A00', '#EF4444', '#64748B'];
 
   const navItems = [
-    ...(role === 'ADMIN' ? [{ label: 'Dashboard', icon: LayoutDashboard }] : []),
+    ...(role === 'ADMIN' ? [{ label: 'Painel Geral', icon: LayoutDashboard }] : []),
     { label: 'Pré-Matrículas', icon: Database },
     { label: 'Planilhas Exportadas', icon: FileSpreadsheet },
     { label: 'Configurações', icon: Settings },
@@ -481,7 +574,7 @@ export default function App() {
 
         {/* CONTENT */}
         <main className="flex-1 overflow-y-auto p-4 md:p-10 lg:p-10 space-y-6 md:space-y-8 scroll-smooth pb-24 md:pb-10">
-          {activeTab === 'Dashboard' && (
+          {activeTab === 'Painel Geral' && (
             <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pt-2 md:pt-0">
               {/* STATS */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -560,6 +653,118 @@ export default function App() {
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}
                           />
                           <Bar dataKey="total" fill="#004587" radius={[4, 4, 0, 0]} barSize={30} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-300 text-[10px] uppercase font-bold">Sem dados para exibir</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NOVO: Ranking de Vendedores */}
+                <div className="bg-white border border-border-main rounded-2xl p-6 md:p-8 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 text-senac-blue">
+                    <TrendingUp size={16} />
+                    <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest">Leads por Vendedor (Top 10)</h3>
+                  </div>
+                  <div className="h-[300px] md:h-[350px] w-full">
+                    {leads.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={chartData.sellerRankingData}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                          <XAxis 
+                            type="number"
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                          />
+                          <YAxis 
+                            dataKey="name" 
+                            type="category"
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                            width={100}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: '#F1F5F9' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}
+                          />
+                          <Bar dataKey="total" fill="#FF9A00" radius={[0, 4, 4, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-300 text-[10px] uppercase font-bold">Sem dados para exibir</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NOVO: Conversão por Vendedor */}
+                <div className="bg-white border border-border-main rounded-2xl p-6 md:p-8 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 text-emerald-600">
+                    <TrendingUp size={16} />
+                    <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest">Matrículas Pagas por Vendedor</h3>
+                  </div>
+                  <div className="h-[300px] md:h-[350px] w-full">
+                    {leads.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={chartData.sellerConversionData}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                          <XAxis 
+                            type="number"
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                          />
+                          <YAxis 
+                            dataKey="name" 
+                            type="category"
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                            width={100}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: '#F1F5F9' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}
+                          />
+                          <Bar dataKey="total" fill="#10B981" radius={[0, 4, 4, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-300 text-[10px] uppercase font-bold">Sem dados para exibir</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NOVO: Ranking de Cursos */}
+                <div className="bg-white border border-border-main rounded-2xl p-6 md:p-8 shadow-sm lg:col-span-2">
+                  <div className="flex items-center gap-2 mb-6 text-slate-800">
+                    <GraduationCap size={16} />
+                    <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest">Ranking de Procura por Curso (Top 5)</h3>
+                  </div>
+                  <div className="h-[250px] md:h-[300px] w-full">
+                    {leads.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData.courseRankingData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                            interval={0}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 8, fontWeight: 700, fill: '#64748B' }}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: '#F1F5F9' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}
+                          />
+                          <Bar dataKey="total" fill="#64748B" radius={[4, 4, 0, 0]} barSize={40} />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (

@@ -2,38 +2,78 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Auth Helper
+    // Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Role Helper - Default Admin is the user email from context
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == "pedrinhoolindio@gmail.com" ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN"
+        request.auth.token.email == "atendimentoespetinho@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Helpers
     function isValidLead(data) {
-      return data.nome is string && 
-             data.curso is string && 
+      return data.nome is string && data.nome.size() > 0 &&
+             data.curso is string && data.curso.size() > 0 &&
              data.status in ['PENDENTE', 'PAGO', 'CANCELADO'];
     }
 
     // Leads collection
     match /leads/{leadId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidLead(request.resource.data);
-      allow update: if isAuthenticated() && isValidLead(request.resource.data);
-      allow delete: if isAdmin(); 
+      
+      allow create: if isAuthenticated() && 
+                    isValidLead(incoming()) && 
+                    incoming().createdAt == request.time;
+      
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (
+          // Action: Update Status Only
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          incoming().status in ['PENDENTE', 'PAGO', 'CANCELADO']
+        ) ||
+        (
+          // Action: Full Update - Allow any field update if data is valid
+          isValidLead(incoming()) &&
+          incoming().updatedAt == request.time
+        )
+      );
+      
+      allow delete: if isAdmin();
     }
 
-    // Users collection for storing roles
+    // Users and Admins collections
+    match /admins/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only manageable through console or admin script
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isAdmin']);
       allow delete: if isAdmin();
     }
   }
